@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -13,21 +14,49 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { login, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login process
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Login Successful",
-      description: "Redirecting to your dashboard...",
-    });
+    try {
+      await login(email, password);
+      toast({
+        title: "Login Successful",
+        description: "Welcome back to SignWise!",
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    setIsLoading(false);
-    // Redirect to dashboard would happen here
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+      toast({
+        title: "Login Successful",
+        description: "Welcome back to SignWise!",
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: "Google login failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -128,7 +157,13 @@ export default function Login() {
                 </div>
               </div>
 
-              <Button variant="outline" type="button" className="w-full">
+              <Button 
+                variant="outline" 
+                type="button" 
+                className="w-full"
+                onClick={handleGoogleLogin}
+                disabled={isLoading}
+              >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

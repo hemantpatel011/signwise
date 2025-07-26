@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileText, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Signup() {
   const [formData, setFormData] = useState({
@@ -20,6 +21,8 @@ export default function Signup() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signup, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -51,16 +54,51 @@ export default function Signup() {
 
     setIsLoading(true);
 
-    // Simulate signup process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: "Account Created Successfully",
-      description: "Welcome to SignWise! Redirecting to your dashboard...",
-    });
+    try {
+      await signup(formData.email, formData.password, formData.name);
+      toast({
+        title: "Account Created Successfully",
+        description: "Welcome to SignWise!",
+      });
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast({
+        title: "Signup Failed",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    setIsLoading(false);
-    // Redirect to dashboard would happen here
+  const handleGoogleSignup = async () => {
+    if (!agreeToTerms) {
+      toast({
+        title: "Terms Required",
+        description: "Please agree to the terms of service to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+      toast({
+        title: "Account Created Successfully",
+        description: "Welcome to SignWise!",
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      toast({
+        title: "Signup Failed",
+        description: "Google signup failed. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -225,7 +263,13 @@ export default function Signup() {
                 </div>
               </div>
 
-              <Button variant="outline" type="button" className="w-full">
+              <Button 
+                variant="outline" 
+                type="button" 
+                className="w-full"
+                onClick={handleGoogleSignup}
+                disabled={isLoading}
+              >
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
