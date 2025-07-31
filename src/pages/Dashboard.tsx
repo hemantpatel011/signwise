@@ -1,65 +1,23 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileText, Brain, MessageSquare, Download, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Upload, FileText, Brain, MessageSquare, Download, AlertTriangle, Clock, CheckCircle2, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDocuments } from "@/hooks/useDocuments";
+import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard() {
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const { toast } = useToast();
+  const { currentUser } = useAuth();
+  const { documents, loading, uploading, uploadProgress, uploadDocument, deleteDocument } = useDocuments();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    // Simulate upload progress
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setIsUploading(false);
-          toast({
-            title: "Document Uploaded Successfully",
-            description: "Your document is being analyzed by our AI...",
-          });
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
+    await uploadDocument(file);
+    // Reset input
+    event.target.value = '';
   };
-
-  const recentDocuments = [
-    {
-      id: 1,
-      name: "Employment_Agreement_2024.pdf",
-      status: "analyzed",
-      uploadedAt: "2 hours ago",
-      riskLevel: "medium",
-      summary: "Standard employment contract with competitive non-compete clause."
-    },
-    {
-      id: 2,
-      name: "NDA_TechCorp.docx",
-      status: "analyzing",
-      uploadedAt: "30 minutes ago",
-      riskLevel: null,
-      summary: null
-    },
-    {
-      id: 3,
-      name: "Service_Agreement.pdf",
-      status: "analyzed",
-      uploadedAt: "1 day ago",
-      riskLevel: "low",
-      summary: "Well-balanced service agreement with fair termination terms."
-    }
-  ];
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -134,7 +92,7 @@ export default function Dashboard() {
                   </label>
                 </div>
                 
-                {isUploading && (
+                {uploading && (
                   <div className="mt-4">
                     <div className="flex justify-between text-sm mb-2">
                       <span>Uploading...</span>
@@ -155,55 +113,79 @@ export default function Dashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-4 border border-border rounded-lg hover:shadow-card transition-smooth"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-gradient-card rounded-lg flex items-center justify-center">
-                          <FileText className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-foreground">{doc.name}</h4>
-                          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                            {getStatusIcon(doc.status)}
-                            <span>Uploaded {doc.uploadedAt}</span>
-                            {doc.riskLevel && (
-                              <>
-                                <span>•</span>
-                                <span className={getRiskColor(doc.riskLevel)}>
-                                  {doc.riskLevel} risk
-                                </span>
-                              </>
+                {loading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-16 bg-muted rounded-lg"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : documents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No documents uploaded yet</p>
+                    <p className="text-sm text-muted-foreground">Upload your first document to get started</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-4 border border-border rounded-lg hover:shadow-card transition-smooth"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-gradient-card rounded-lg flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-foreground">{doc.filename}</h4>
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                              {getStatusIcon(doc.status)}
+                              <span>Uploaded {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}</span>
+                              {doc.risk_level && (
+                                <>
+                                  <span>•</span>
+                                  <span className={getRiskColor(doc.risk_level)}>
+                                    {doc.risk_level} risk
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            {doc.analysis_results?.summary && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {doc.analysis_results.summary}
+                              </p>
                             )}
                           </div>
-                          {doc.summary && (
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {doc.summary}
-                            </p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {doc.status === "analyzed" && (
+                            <>
+                              <Button variant="ghost" size="sm" title="Chat with AI">
+                                <MessageSquare className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" title="Download Report">
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </>
                           )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => deleteDocument(doc.id, doc.file_path)}
+                            title="Delete Document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {doc.status === "analyzed" && (
-                          <>
-                            <Button variant="ghost" size="sm">
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          </>
-                        )}
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -217,19 +199,19 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
+                 <div>
                     <div className="flex justify-between text-sm mb-2">
                       <span>Documents Analyzed</span>
-                      <span>12 / 50</span>
+                      <span>{documents.filter(d => d.status === 'analyzed').length} / 50</span>
                     </div>
-                    <Progress value={24} />
+                    <Progress value={(documents.filter(d => d.status === 'analyzed').length / 50) * 100} />
                   </div>
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>AI Chat Messages</span>
-                      <span>48 / 200</span>
+                      <span>Total Documents</span>
+                      <span>{documents.length}</span>
                     </div>
-                    <Progress value={24} />
+                    <Progress value={(documents.length / 50) * 100} />
                   </div>
                   <Button variant="premium" className="w-full text-sm">
                     Upgrade Plan
