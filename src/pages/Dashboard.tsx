@@ -1,14 +1,25 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileText, Brain, MessageSquare, Download, AlertTriangle, Clock, CheckCircle2, Trash2 } from "lucide-react";
+import { Upload, FileText, Brain, MessageSquare, Download, AlertTriangle, Clock, CheckCircle2, Trash2, TrendingUp, Users, Zap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocuments } from "@/hooks/useDocuments";
+import { Document } from "@/hooks/useDocuments";
+import { DocumentViewer } from "@/components/DocumentViewer";
+import { AIChat } from "@/components/AIChat";
 import { formatDistanceToNow } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { documents, loading, uploading, uploadProgress, uploadDocument, deleteDocument } = useDocuments();
+  const { documents, loading, uploading, uploadProgress, uploadDocument, deleteDocument, downloadDocument, downloadReport } = useDocuments();
+  const { toast } = useToast();
+  
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatDocument, setChatDocument] = useState<Document | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -17,6 +28,66 @@ export default function Dashboard() {
     await uploadDocument(file);
     // Reset input
     event.target.value = '';
+  };
+
+  const handleViewDocument = (document: Document) => {
+    setSelectedDocument(document);
+    setViewerOpen(true);
+  };
+
+  const handleChatWithAI = (document: Document) => {
+    setChatDocument(document);
+    setChatOpen(true);
+  };
+
+  const handleDownloadReport = (document: Document) => {
+    downloadReport(document);
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'ai-assistant':
+        if (documents.length > 0) {
+          handleChatWithAI(documents[0]);
+        } else {
+          toast({
+            title: "No Documents",
+            description: "Upload a document first to chat with AI",
+            variant: "destructive",
+          });
+        }
+        break;
+      case 'export-reports':
+        const analyzedDocs = documents.filter(d => d.status === 'analyzed');
+        if (analyzedDocs.length > 0) {
+          analyzedDocs.forEach(doc => downloadReport(doc));
+          toast({
+            title: "Exporting Reports",
+            description: `Downloading ${analyzedDocs.length} analysis reports`,
+          });
+        } else {
+          toast({
+            title: "No Reports Available",
+            description: "No analyzed documents found",
+            variant: "destructive",
+          });
+        }
+        break;
+      case 'risk-alerts':
+        const highRiskDocs = documents.filter(d => d.risk_level === 'high');
+        if (highRiskDocs.length > 0) {
+          toast({
+            title: "Risk Alerts",
+            description: `${highRiskDocs.length} high-risk documents found`,
+          });
+        } else {
+          toast({
+            title: "No High-Risk Documents",
+            description: "All documents are within acceptable risk levels",
+          });
+        }
+        break;
+    }
   };
 
   const getRiskColor = (level: string) => {
@@ -162,10 +233,20 @@ export default function Dashboard() {
                         <div className="flex items-center space-x-2">
                           {doc.status === "analyzed" && (
                             <>
-                              <Button variant="ghost" size="sm" title="Chat with AI">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleChatWithAI(doc)}
+                                title="Chat with AI"
+                              >
                                 <MessageSquare className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" title="Download Report">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDownloadReport(doc)}
+                                title="Download Report"
+                              >
                                 <Download className="w-4 h-4" />
                               </Button>
                             </>
@@ -178,7 +259,11 @@ export default function Dashboard() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewDocument(doc)}
+                          >
                             View
                           </Button>
                         </div>
@@ -226,15 +311,27 @@ export default function Dashboard() {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start gap-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleQuickAction('ai-assistant')}
+                >
                   <Brain className="w-4 h-4" />
                   Ask AI Assistant
                 </Button>
-                <Button variant="outline" className="w-full justify-start gap-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleQuickAction('export-reports')}
+                >
                   <Download className="w-4 h-4" />
                   Export Reports
                 </Button>
-                <Button variant="outline" className="w-full justify-start gap-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={() => handleQuickAction('risk-alerts')}
+                >
                   <AlertTriangle className="w-4 h-4" />
                   Risk Alerts
                 </Button>
@@ -248,33 +345,48 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 text-sm">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
-                    <div>
-                      <p className="text-foreground">Document analyzed</p>
-                      <p className="text-muted-foreground">Employment_Agreement_2024.pdf</p>
+                  {documents.slice(0, 3).map((doc, index) => (
+                    <div key={doc.id} className="flex items-start space-x-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${
+                        doc.status === 'analyzed' ? 'bg-green-500' :
+                        doc.status === 'analyzing' ? 'bg-primary' : 'bg-muted-foreground'
+                      }`}></div>
+                      <div>
+                        <p className="text-foreground">
+                          {doc.status === 'analyzed' ? 'Document analyzed' :
+                           doc.status === 'analyzing' ? 'Analysis in progress' : 'Document uploaded'}
+                        </p>
+                        <p className="text-muted-foreground">{doc.filename}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                    <div>
-                      <p className="text-foreground">Report exported</p>
-                      <p className="text-muted-foreground">Service_Agreement.pdf</p>
+                  ))}
+                  {documents.length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">No recent activity</p>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                    <div>
-                      <p className="text-foreground">Risk flag detected</p>
-                      <p className="text-muted-foreground">High penalty clause found</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Document Viewer Dialog */}
+      <DocumentViewer
+        document={selectedDocument}
+        open={viewerOpen}
+        onOpenChange={setViewerOpen}
+        onDownload={downloadDocument}
+        onChat={handleChatWithAI}
+      />
+
+      {/* AI Chat Dialog */}
+      <AIChat
+        document={chatDocument}
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+      />
     </div>
   );
 }

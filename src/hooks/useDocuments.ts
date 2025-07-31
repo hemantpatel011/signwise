@@ -220,6 +220,91 @@ export function useDocuments() {
     }
   }, [currentUser]);
 
+  // Download document file
+  const downloadDocument = async (doc: Document) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(doc.file_path);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = doc.filename;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Started",
+        description: "Your document is being downloaded",
+      });
+
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download document",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Download analysis report
+  const downloadReport = async (doc: Document) => {
+    if (!doc.analysis_results) {
+      toast({
+        title: "No Report Available",
+        description: "This document hasn't been analyzed yet",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create a formatted report
+      const report = {
+        document: {
+          filename: doc.filename,
+          uploadDate: doc.created_at,
+          riskLevel: doc.risk_level,
+          riskScore: doc.risk_score
+        },
+        analysis: doc.analysis_results
+      };
+
+      const blob = new Blob([JSON.stringify(report, null, 2)], { 
+        type: 'application/json' 
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = `${doc.filename.split('.')[0]}_analysis_report.json`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Report Downloaded",
+        description: "Analysis report has been downloaded",
+      });
+
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download analysis report",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     documents,
     loading,
@@ -228,6 +313,8 @@ export function useDocuments() {
     uploadDocument,
     deleteDocument,
     analyzeDocument,
+    downloadDocument,
+    downloadReport,
     refreshDocuments: fetchDocuments
   };
 }
