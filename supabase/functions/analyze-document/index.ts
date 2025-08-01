@@ -159,7 +159,7 @@ Please provide a comprehensive analysis in JSON format with the following struct
             }
           ],
           generationConfig: {
-            temperature: 0.1,
+            temperature: 1,
             topK: 1,
             topP: 1,
             maxOutputTokens: 4096,

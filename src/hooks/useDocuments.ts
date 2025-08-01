@@ -22,6 +22,7 @@ export function useDocuments() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [analysisTimeouts, setAnalysisTimeouts] = useState<Set<string>>(new Set());
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
@@ -128,8 +129,49 @@ export function useDocuments() {
 
       if (dbError) throw dbError;
 
-      // Start AI analysis
-      await analyzeDocument(documentData.id);
+      // Start AI analysis with timeout
+      const analysisTimeout = setTimeout(() => {
+        setAnalysisTimeouts(prev => new Set([...prev, documentData.id]));
+        
+        // Update document status to show timeout
+        supabase
+          .from('documents')
+          .update({ 
+            status: 'error',
+            analysis_results: { 
+              error: 'Analysis timeout - document may be too complex or corrupted',
+              summary: 'Document analysis failed due to timeout (3 minutes)',
+              riskLevel: 'unknown'
+            }
+          })
+          .eq('id', documentData.id);
+          
+        toast({
+          title: "Analysis Timeout",
+          description: "Document analysis took too long. The document may be too complex or corrupted.",
+          variant: "destructive"
+        });
+      }, 180000); // 3 minutes timeout
+
+      // Start analysis and handle response
+      supabase.functions.invoke('analyze-document', {
+        body: { documentId: documentData.id }
+      }).then(({ error: analysisError }) => {
+        clearTimeout(analysisTimeout);
+        if (analysisError) {
+          console.error('Analysis failed:', analysisError);
+          toast({
+            title: "Analysis Failed", 
+            description: "Document uploaded but analysis failed",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Analysis Complete", 
+            description: "Document has been analyzed successfully",
+          });
+        }
+      });
 
       // Refresh documents list
       await fetchDocuments();
@@ -220,7 +262,7 @@ export function useDocuments() {
     }
   }, [currentUser]);
 
-  // Download document file
+  // Download document file as PDF by default
   const downloadDocument = async (doc: Document) => {
     try {
       const { data, error } = await supabase.storage
@@ -229,11 +271,12 @@ export function useDocuments() {
 
       if (error) throw error;
 
-      // Create download link
-      const url = URL.createObjectURL(data);
+      // Always download as PDF by default
+      const blob = new Blob([data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
       const link = window.document.createElement('a');
       link.href = url;
-      link.download = doc.filename;
+      link.download = doc.filename.replace(/\.[^/.]+$/, '.pdf'); // Change extension to .pdf
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
@@ -241,7 +284,7 @@ export function useDocuments() {
 
       toast({
         title: "Download Started",
-        description: "Your document is being downloaded",
+        description: "Document is being downloaded as PDF",
       });
 
     } catch (error) {
@@ -305,8 +348,16 @@ export function useDocuments() {
     }
   };
 
+  // Get current document (latest uploaded)
+  const currentDocument = documents.length > 0 ? documents[0] : null;
+  
+  // Get recent activity (all documents except the current one)
+  const recentActivity = documents.slice(1);
+
   return {
     documents,
+    currentDocument,
+    recentActivity,
     loading,
     uploading,
     uploadProgress,
@@ -315,6 +366,7 @@ export function useDocuments() {
     analyzeDocument,
     downloadDocument,
     downloadReport,
+    analysisTimeouts,
     refreshDocuments: fetchDocuments
   };
 }

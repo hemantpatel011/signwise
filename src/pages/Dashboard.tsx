@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { documents, loading, uploading, uploadProgress, uploadDocument, deleteDocument, downloadDocument, downloadReport } = useDocuments();
+  const { documents, currentDocument, recentActivity, loading, uploading, uploadProgress, uploadDocument, deleteDocument, downloadDocument, downloadReport, analysisTimeouts } = useDocuments();
   const { toast } = useToast();
   
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -47,8 +47,8 @@ export default function Dashboard() {
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'ai-assistant':
-        if (documents.length > 0) {
-          handleChatWithAI(documents[0]);
+        if (currentDocument) {
+          handleChatWithAI(currentDocument);
         } else {
           toast({
             title: "No Documents",
@@ -175,100 +175,95 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Recent Documents */}
+            {/* Current Document */}
             <Card className="shadow-card">
               <CardHeader>
-                <CardTitle>Recent Documents</CardTitle>
+                <CardTitle>Current Document</CardTitle>
                 <CardDescription>
-                  Your recently uploaded and analyzed documents
+                  Your latest uploaded document
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="h-16 bg-muted rounded-lg"></div>
-                      </div>
-                    ))}
+                  <div className="animate-pulse">
+                    <div className="h-16 bg-muted rounded-lg"></div>
                   </div>
-                ) : documents.length === 0 ? (
+                ) : !currentDocument ? (
                   <div className="text-center py-8">
                     <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">No documents uploaded yet</p>
                     <p className="text-sm text-muted-foreground">Upload your first document to get started</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-4 border border-border rounded-lg hover:shadow-card transition-smooth"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-gradient-card rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-foreground">{doc.filename}</h4>
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                              {getStatusIcon(doc.status)}
-                              <span>Uploaded {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}</span>
-                              {doc.risk_level && (
-                                <>
-                                  <span>•</span>
-                                  <span className={getRiskColor(doc.risk_level)}>
-                                    {doc.risk_level} risk
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            {doc.analysis_results?.summary && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {doc.analysis_results.summary}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {doc.status === "analyzed" && (
+                  <div className="flex items-center justify-between p-4 border border-border rounded-lg hover:shadow-card transition-smooth">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-gradient-card rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-foreground">{currentDocument.filename}</h4>
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          {getStatusIcon(currentDocument.status)}
+                          <span>Uploaded {formatDistanceToNow(new Date(currentDocument.created_at), { addSuffix: true })}</span>
+                          {currentDocument.risk_level && (
                             <>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleChatWithAI(doc)}
-                                title="Chat with AI"
-                              >
-                                <MessageSquare className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleDownloadReport(doc)}
-                                title="Download Report"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
+                              <span>•</span>
+                              <span className={getRiskColor(currentDocument.risk_level)}>
+                                {currentDocument.risk_level} risk
+                              </span>
                             </>
                           )}
+                          {analysisTimeouts.has(currentDocument.id) && (
+                            <>
+                              <span>•</span>
+                              <span className="text-destructive">Analysis timeout</span>
+                            </>
+                          )}
+                        </div>
+                        {currentDocument.analysis_results?.summary && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {currentDocument.analysis_results.summary}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {currentDocument.status === "analyzed" && (
+                        <>
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => deleteDocument(doc.id, doc.file_path)}
-                            title="Delete Document"
+                            onClick={() => handleChatWithAI(currentDocument)}
+                            title="Chat with AI"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <MessageSquare className="w-4 h-4" />
                           </Button>
                           <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleViewDocument(doc)}
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDownloadReport(currentDocument)}
+                            title="Download Report"
                           >
-                            View
+                            <Download className="w-4 h-4" />
                           </Button>
-                        </div>
-                      </div>
-                    ))}
+                        </>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => deleteDocument(currentDocument.id, currentDocument.file_path)}
+                        title="Delete Document"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewDocument(currentDocument)}
+                      >
+                        View
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -342,30 +337,75 @@ export default function Dashboard() {
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="text-lg">Recent Activity</CardTitle>
+                <CardDescription>All your previous documents</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3 text-sm">
-                  {documents.slice(0, 3).map((doc, index) => (
-                    <div key={doc.id} className="flex items-start space-x-3">
-                      <div className={`w-2 h-2 rounded-full mt-2 ${
-                        doc.status === 'analyzed' ? 'bg-green-500' :
-                        doc.status === 'analyzing' ? 'bg-primary' : 'bg-muted-foreground'
-                      }`}></div>
-                      <div>
-                        <p className="text-foreground">
-                          {doc.status === 'analyzed' ? 'Document analyzed' :
-                           doc.status === 'analyzing' ? 'Analysis in progress' : 'Document uploaded'}
-                        </p>
-                        <p className="text-muted-foreground">{doc.filename}</p>
+                {recentActivity.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground">No previous documents</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentActivity.slice(0, 5).map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:shadow-card transition-smooth">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-2 h-2 rounded-full ${
+                            doc.status === 'analyzed' ? 'bg-green-500' :
+                            doc.status === 'analyzing' ? 'bg-primary' : 'bg-muted-foreground'
+                          }`}></div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{doc.filename}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
+                              {doc.risk_level && (
+                                <span className={`ml-2 ${getRiskColor(doc.risk_level)}`}>
+                                  • {doc.risk_level} risk
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          {doc.status === "analyzed" && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleChatWithAI(doc)}
+                                title="Chat with AI"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => downloadDocument(doc)}
+                                title="Download PDF"
+                              >
+                                <Download className="w-3 h-3" />
+                              </Button>
+                            </>
+                          )}
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => deleteDocument(doc.id, doc.file_path)}
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleViewDocument(doc)}
+                          >
+                            View
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {documents.length === 0 && (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground">No recent activity</p>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
