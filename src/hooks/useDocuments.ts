@@ -297,7 +297,7 @@ export function useDocuments() {
     }
   };
 
-  // Download analysis report
+  // Download analysis report as PDF
   const downloadReport = async (doc: Document) => {
     if (!doc.analysis_results) {
       toast({
@@ -309,33 +309,91 @@ export function useDocuments() {
     }
 
     try {
-      // Create a formatted report
-      const report = {
-        document: {
-          filename: doc.filename,
-          uploadDate: doc.created_at,
-          riskLevel: doc.risk_level,
-          riskScore: doc.risk_score
-        },
-        analysis: doc.analysis_results
+      // Dynamic import for jsPDF to reduce bundle size
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF();
+      
+      let yPosition = 20;
+      const pageWidth = pdf.internal.pageSize.width;
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+
+      // Helper function to add text with line breaks
+      const addText = (text: string, fontSize = 12, isBold = false) => {
+        pdf.setFontSize(fontSize);
+        if (isBold) pdf.setFont('helvetica', 'bold');
+        else pdf.setFont('helvetica', 'normal');
+        
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        pdf.text(lines, margin, yPosition);
+        yPosition += lines.length * (fontSize * 0.4) + 5;
+        
+        // Add new page if needed
+        if (yPosition > 270) {
+          pdf.addPage();
+          yPosition = 20;
+        }
       };
 
-      const blob = new Blob([JSON.stringify(report, null, 2)], { 
-        type: 'application/json' 
-      });
-      
-      const url = URL.createObjectURL(blob);
-      const link = window.document.createElement('a');
-      link.href = url;
-      link.download = `${doc.filename.split('.')[0]}_analysis_report.json`;
-      window.document.body.appendChild(link);
-      link.click();
-      window.document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Title
+      addText('Document Analysis Report', 20, true);
+      yPosition += 10;
+
+      // Document Information
+      addText('Document Information', 16, true);
+      addText(`Filename: ${doc.filename}`);
+      addText(`Upload Date: ${new Date(doc.created_at).toLocaleDateString()}`);
+      addText(`Risk Level: ${doc.risk_level?.toUpperCase() || 'N/A'}`);
+      addText(`Risk Score: ${doc.risk_score || 'N/A'}/100`);
+      yPosition += 10;
+
+      // Analysis Results
+      if (doc.analysis_results.summary) {
+        addText('Executive Summary', 16, true);
+        addText(doc.analysis_results.summary);
+        yPosition += 10;
+      }
+
+      if (doc.analysis_results.riskAreas?.length > 0) {
+        addText('Risk Areas', 16, true);
+        doc.analysis_results.riskAreas.forEach((area: any, index: number) => {
+          addText(`${index + 1}. ${area.category}: ${area.description}`);
+          if (area.severity) addText(`   Severity: ${area.severity}`);
+        });
+        yPosition += 10;
+      }
+
+      if (doc.analysis_results.findings?.length > 0) {
+        addText('Key Findings', 16, true);
+        doc.analysis_results.findings.forEach((finding: string, index: number) => {
+          addText(`${index + 1}. ${finding}`);
+        });
+        yPosition += 10;
+      }
+
+      if (doc.analysis_results.recommendations?.length > 0) {
+        addText('Recommendations', 16, true);
+        doc.analysis_results.recommendations.forEach((rec: string, index: number) => {
+          addText(`${index + 1}. ${rec}`);
+        });
+      }
+
+      // Footer
+      const pageCount = (pdf as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Generated on ${new Date().toLocaleDateString()} - Page ${i} of ${pageCount}`, 
+          margin, pdf.internal.pageSize.height - 10);
+      }
+
+      // Save the PDF
+      pdf.save(`${doc.filename.split('.')[0]}_analysis_report.pdf`);
 
       toast({
         title: "Report Downloaded",
-        description: "Analysis report has been downloaded",
+        description: "Analysis report has been downloaded as PDF",
       });
 
     } catch (error) {

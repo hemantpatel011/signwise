@@ -1,18 +1,14 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Send, MessageSquare, Loader2 } from "lucide-react";
 import { Document } from "@/hooks/useDocuments";
 
 interface Message {
-  id: string;
+  role: 'user' | 'assistant';
   content: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
 }
 
 interface AIChatProps {
@@ -22,142 +18,122 @@ interface AIChatProps {
 }
 
 export function AIChat({ document, open, onOpenChange }: AIChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: `Hello! I'm your AI assistant. I've analyzed your document "${document?.filename}" and I'm ready to answer any questions you have about it. What would you like to know?`,
-      sender: 'ai',
-      timestamp: new Date()
-    }
-  ]);
-  const [newMessage, setNewMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (document && open) {
+      setMessages([
+        {
+          role: 'assistant',
+          content: `Hello! I'm here to help you understand your document "${document.filename}". I've analyzed it and can answer questions about its content, risks, and recommendations. What would you like to know?`
+        }
+      ]);
+    }
+  }, [document, open]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !document) return;
+    if (!input.trim() || !document || isLoading) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      sender: 'user',
-      timestamp: new Date()
-    };
-
+    const userMessage: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMessage]);
-    setNewMessage("");
+    setInput("");
     setIsLoading(true);
 
-    // Simulate AI response (in a real app, this would call your AI API)
+    // Simulate AI response based on document analysis
     setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `I understand you're asking about "${newMessage}". Based on my analysis of ${document.filename}, here's what I found relevant to your question. The document shows ${document.risk_level} risk level with specific areas of concern that I can elaborate on. Would you like me to explain any specific findings in more detail?`,
-        sender: 'ai',
-        timestamp: new Date()
-      };
+      let response = "";
       
-      setMessages(prev => [...prev, aiResponse]);
-      setIsLoading(false);
-    }, 1500);
-  };
+      if (input.toLowerCase().includes('risk')) {
+        response = `Based on my analysis of ${document.filename}, the document has a ${document.risk_level || 'unknown'} risk level${document.risk_score ? ` with a risk score of ${document.risk_score}/100` : ''}. `;
+        
+        if (document.analysis_results?.riskAreas?.length > 0) {
+          response += `The main risk areas include: ${document.analysis_results.riskAreas.map((area: any) => area.category).join(', ')}. `;
+        }
+        
+        response += "Would you like me to explain any specific risk area in more detail?";
+      } else if (input.toLowerCase().includes('summary') || input.toLowerCase().includes('overview')) {
+        response = document.analysis_results?.summary || "I've analyzed this document thoroughly. The analysis includes risk assessment, key findings, and recommendations for improvement.";
+      } else if (input.toLowerCase().includes('recommendation')) {
+        if (document.analysis_results?.recommendations?.length > 0) {
+          response = `Here are the key recommendations for ${document.filename}: ${document.analysis_results.recommendations.slice(0, 3).join('. ')}`;
+        } else {
+          response = "Based on my analysis, I can provide specific recommendations once the document analysis is complete.";
+        }
+      } else {
+        response = `I understand you're asking about "${input}". Based on my analysis of ${document.filename}, this relates to the document's ${document.risk_level || 'assessed'} risk profile. Would you like me to elaborate on any specific aspect of the analysis?`;
+      }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+      const assistantMessage: Message = { role: 'assistant', content: response };
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
+    }, 1000 + Math.random() * 2000); // Random delay for realism
   };
 
   if (!document) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[90vh] mx-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bot className="w-5 h-5" />
-            AI Assistant - {document.filename}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="truncate">AI Assistant - {document.filename}</span>
           </DialogTitle>
-          <DialogDescription>
-            Ask questions about your document analysis
-          </DialogDescription>
         </DialogHeader>
-
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${
-                  message.sender === 'user' ? 'justify-end' : 'justify-start'
-                }`}
-              >
-                {message.sender === 'ai' && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback>
-                      <Bot className="w-4 h-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                
-                <Card className={`max-w-[80%] ${
-                  message.sender === 'user' 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted'
-                }`}>
-                  <CardContent className="p-3">
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 opacity-70`}>
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {message.sender === 'user' && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback>
-                      <User className="w-4 h-4" />
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex gap-3 justify-start">
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback>
-                    <Bot className="w-4 h-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <Card className="bg-muted">
-                  <CardContent className="p-3">
+        
+        <div className="flex flex-col h-[60vh] sm:h-[70vh]">
+          <ScrollArea className="flex-1 p-2 sm:p-4 border rounded-lg mb-4">
+            <div className="space-y-3 sm:space-y-4">
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] sm:max-w-[80%] p-2 sm:p-3 rounded-lg ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground ml-2 sm:ml-4'
+                        : 'bg-muted mr-2 sm:mr-4'
+                    }`}
+                  >
+                    <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted p-2 sm:p-3 rounded-lg mr-2 sm:mr-4">
                     <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">AI is typing...</span>
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                      <span className="text-xs sm:text-sm">Thinking...</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+          
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask questions about this document..."
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+              disabled={isLoading}
+              className="text-sm h-9"
+            />
+            <Button onClick={handleSendMessage} disabled={isLoading || !input.trim()} size="sm" className="h-9 px-3">
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
-        </ScrollArea>
-
-        <div className="flex gap-2 pt-4 border-t">
-          <Input
-            placeholder="Ask about your document..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-          />
-          <Button 
-            onClick={handleSendMessage} 
-            disabled={!newMessage.trim() || isLoading}
-            size="icon"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

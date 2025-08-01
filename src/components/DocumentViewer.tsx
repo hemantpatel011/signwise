@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, CheckCircle2, Clock, Download, FileText, MessageSquare } from "lucide-react";
+import { CheckCircle, Clock, Download, FileText, MessageSquare, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Document } from "@/hooks/useDocuments";
-import { formatDistanceToNow } from "date-fns";
 
 interface DocumentViewerProps {
   document: Document | null;
@@ -20,7 +18,7 @@ interface DocumentViewerProps {
 export function DocumentViewer({ document, open, onOpenChange, onDownload, onChat }: DocumentViewerProps) {
   if (!document) return null;
 
-  const getRiskColor = (level: string) => {
+  const getRiskColor = (level?: string) => {
     switch (level) {
       case "high": return "destructive";
       case "medium": return "secondary";
@@ -40,79 +38,87 @@ export function DocumentViewer({ document, open, onOpenChange, onDownload, onCha
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "analyzed": return <CheckCircle2 className="w-4 h-4 text-green-600" />;
-      case "analyzing": return <Clock className="w-4 h-4 text-primary animate-pulse" />;
-      default: return <Clock className="w-4 h-4 text-muted-foreground" />;
+      case "analyzed": return <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />;
+      case "analyzing": return <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-primary animate-pulse" />;
+      default: return <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />;
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[90vh] mx-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            {document.filename}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="truncate">{document.filename}</span>
           </DialogTitle>
-          <DialogDescription>
-            Uploaded {formatDistanceToNow(new Date(document.created_at), { addSuffix: true })}
-          </DialogDescription>
+          <div className="text-xs sm:text-sm text-muted-foreground">
+            Uploaded on {new Date(document.created_at).toLocaleDateString()}
+          </div>
         </DialogHeader>
-
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6">
-            {/* Document Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {getStatusIcon(document.status)}
-                  Document Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Status</p>
-                    <p className="text-sm capitalize">{document.status}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">File Size</p>
-                    <p className="text-sm">{(document.file_size / 1024).toFixed(1)} KB</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Type</p>
-                    <p className="text-sm">{document.file_type}</p>
-                  </div>
-                  {document.risk_level && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Risk Level</p>
-                      <Badge variant={getRiskColor(document.risk_level)}>
-                        {document.risk_level}
-                      </Badge>
+        
+        <ScrollArea className="max-h-[70vh]">
+          <div className="space-y-4 sm:space-y-6 pr-2 sm:pr-4">
+            {/* Document Metadata */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(document.status)}
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Status</p>
+                      <p className="text-xs sm:text-base font-medium capitalize truncate">{document.status}</p>
                     </div>
-                  )}
-                </div>
-                
-                {document.risk_score && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Risk Score</p>
-                    <p className="text-sm">{(document.risk_score * 100).toFixed(1)}%</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Size</p>
+                    <p className="text-xs sm:text-base font-medium">{(document.file_size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Type</p>
+                    <p className="text-xs sm:text-base font-medium">{document.file_type.split('/')[1].toUpperCase()}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getRiskColor(document.risk_level)} className="text-xs">
+                      {document.risk_level || 'Unknown'}
+                    </Badge>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground">Risk Score</p>
+                      <p className="text-xs sm:text-base font-medium">{document.risk_score || 'N/A'}/100</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Analysis Results */}
-            {document.analysis_results && document.status === "analyzed" && (
-              <>
+            {document.status === 'analyzed' && document.analysis_results && (
+              <div className="space-y-4 sm:space-y-6">
+                <h3 className="text-base sm:text-lg font-semibold">Analysis Results</h3>
+                
                 {/* Summary */}
                 {document.analysis_results.summary && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Analysis Summary</CardTitle>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm sm:text-base">Executive Summary</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">
+                    <CardContent className="pt-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                         {document.analysis_results.summary}
                       </p>
                     </CardContent>
@@ -122,29 +128,23 @@ export function DocumentViewer({ document, open, onOpenChange, onDownload, onCha
                 {/* Risk Areas */}
                 {document.analysis_results.riskAreas && document.analysis_results.riskAreas.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5" />
-                        Risk Areas
-                      </CardTitle>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm sm:text-base">Risk Areas</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {document.analysis_results.riskAreas.map((risk: any, index: number) => (
-                        <div key={index} className="border border-border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{risk.category}</h4>
-                            <Badge variant={getRiskColor(risk.severity)}>
-                              {risk.severity}
-                            </Badge>
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        {document.analysis_results.riskAreas.map((area: any, index: number) => (
+                          <div key={index} className="border-l-4 border-primary pl-3 sm:pl-4">
+                            <h4 className="text-sm sm:text-base font-medium">{area.category}</h4>
+                            <p className="text-xs sm:text-sm text-muted-foreground">{area.description}</p>
+                            {area.severity && (
+                              <span className={`text-xs font-medium ${getSeverityColor(area.severity)}`}>
+                                Severity: {area.severity}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {risk.description}
-                          </p>
-                          <p className="text-sm font-medium text-foreground">
-                            Impact: {risk.impact}
-                          </p>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -152,33 +152,18 @@ export function DocumentViewer({ document, open, onOpenChange, onDownload, onCha
                 {/* Findings */}
                 {document.analysis_results.findings && document.analysis_results.findings.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Key Findings</CardTitle>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm sm:text-base">Key Findings</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {document.analysis_results.findings.map((finding: any, index: number) => (
-                        <div key={index} className="border border-border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{finding.type}</h4>
-                            {finding.section && (
-                              <Badge variant="outline">{finding.section}</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {finding.description}
-                          </p>
-                          {finding.recommendation && (
-                            <div className="bg-muted/50 rounded-md p-3 mt-2">
-                              <p className="text-sm font-medium text-foreground mb-1">
-                                Recommendation:
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {finding.recommendation}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    <CardContent className="pt-0">
+                      <ul className="space-y-2">
+                        {document.analysis_results.findings.map((finding: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 sm:mt-2 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{finding}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </CardContent>
                   </Card>
                 )}
@@ -186,46 +171,39 @@ export function DocumentViewer({ document, open, onOpenChange, onDownload, onCha
                 {/* Recommendations */}
                 {document.analysis_results.recommendations && document.analysis_results.recommendations.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Recommendations</CardTitle>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm sm:text-base">Recommendations</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      {document.analysis_results.recommendations.map((rec: any, index: number) => (
-                        <div key={index} className="border border-border rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge variant={rec.priority === 'high' ? 'destructive' : rec.priority === 'medium' ? 'secondary' : 'default'}>
-                              {rec.priority} priority
-                            </Badge>
-                          </div>
-                          <h4 className="font-medium mb-2">{rec.action}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {rec.rationale}
-                          </p>
-                        </div>
-                      ))}
+                    <CardContent className="pt-0">
+                      <ul className="space-y-2">
+                        {document.analysis_results.recommendations.map((rec: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 mt-1 sm:mt-0.5 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{rec}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </CardContent>
                   </Card>
                 )}
-              </>
+              </div>
             )}
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-4">
-              {document.status === "analyzed" && (
-                <>
-                  <Button onClick={() => onChat(document)} className="gap-2">
-                    <MessageSquare className="w-4 h-4" />
-                    Chat with AI
-                  </Button>
-                  <Button variant="outline" onClick={() => onDownload(document)} className="gap-2">
-                    <Download className="w-4 h-4" />
-                    Download Report
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
         </ScrollArea>
+
+        {/* Action Buttons */}
+        {document.status === 'analyzed' && (
+          <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+            <Button onClick={() => onChat(document)} className="flex-1 h-9 text-sm">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Chat with AI
+            </Button>
+            <Button onClick={() => onDownload(document)} variant="outline" className="flex-1 h-9 text-sm">
+              <Download className="h-4 w-4 mr-2" />
+              Download Report
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
