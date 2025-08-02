@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface Document {
   id: string;
+  user_id: string;
   filename: string;
   file_path: string;
   file_size: number;
@@ -223,6 +224,17 @@ export function useDocuments() {
   // Delete document
   const deleteDocument = async (documentId: string, filePath: string) => {
     try {
+      // Security check: ensure user can only delete their own documents
+      const documentToDelete = documents.find(doc => doc.id === documentId);
+      if (!documentToDelete || documentToDelete.user_id !== currentUser?.id) {
+        toast({
+          title: "Access denied",
+          description: "You can only delete your own documents",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('documents')
@@ -265,6 +277,16 @@ export function useDocuments() {
   // Download document file as PDF by default
   const downloadDocument = async (doc: Document) => {
     try {
+      // Security check: ensure user can only download their own documents
+      if (doc.user_id !== currentUser?.id) {
+        toast({
+          title: "Access denied",
+          description: "You can only download your own documents",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.storage
         .from('documents')
         .download(doc.file_path);
@@ -299,6 +321,16 @@ export function useDocuments() {
 
   // Download analysis report as PDF
   const downloadReport = async (doc: Document) => {
+    // Security check: ensure user can only download reports for their own documents
+    if (doc.user_id !== currentUser?.id) {
+      toast({
+        title: "Access denied",
+        description: "You can only download reports for your own documents",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!doc.analysis_results) {
       toast({
         title: "No Report Available",

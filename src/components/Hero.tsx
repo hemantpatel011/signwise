@@ -46,8 +46,12 @@ export default function Hero() {
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-smooth" />
               </Button>
             </Link>
-            <Button variant="glass" size="xl">
-              Watch Demo
+            <Button 
+              variant="glass" 
+              size="xl"
+              onClick={() => window.open('https://github.com/hemantpatel011/signwise.git', '_blank')}
+            >
+              GitHub
             </Button>
           </div>
 

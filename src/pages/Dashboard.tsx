@@ -114,6 +114,24 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Dashboard Header */}
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
+        <div className="container mx-auto px-3 sm:px-6">
+          <div className="flex items-center justify-between py-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                Analyze and manage your legal documents with AI
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Welcome back,</p>
+              <p className="font-medium text-foreground">{currentUser?.email}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <div className="container mx-auto p-3 sm:p-6">
         <div className="flex flex-col xl:flex-row gap-4 sm:gap-6">
           {/* Main Content */}
