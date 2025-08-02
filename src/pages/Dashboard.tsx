@@ -114,19 +114,22 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Dashboard Header */}
-      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
+      {/* Made in India Dashboard Header */}
+      <div className="border-b bg-gradient-card backdrop-blur-sm sticky top-0 z-40 india-pride shadow-heritage">
         <div className="container mx-auto px-3 sm:px-6">
-          <div className="flex items-center justify-between py-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                Analyze and manage your legal documents with AI
+          <div className="flex items-center justify-between py-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-heading">Dashboard</h1>
+                <span className="text-sm bg-gradient-primary bg-clip-text text-transparent font-semibold animate-shimmer">🇮🇳 Made in India</span>
+              </div>
+              <p className="text-sm sm:text-base text-muted-foreground font-body">
+                Analyze and manage your legal documents with AI-powered insights
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Welcome back,</p>
-              <p className="font-medium text-foreground">{currentUser?.email}</p>
+            <div className="text-right space-y-1">
+              <p className="text-sm text-muted-foreground font-body">Welcome back,</p>
+              <p className="font-medium text-foreground font-heading">{currentUser?.email}</p>
             </div>
           </div>
         </div>

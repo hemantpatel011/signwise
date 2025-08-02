@@ -57,7 +57,7 @@ export default function Pricing() {
       ],
       cta: "Contact Sales",
       href: "/contact",
-      variant: "premium" as const
+      variant: "heritage" as const
     }
   ];
 
