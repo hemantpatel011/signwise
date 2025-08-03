@@ -1,8 +1,32 @@
 import { Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Pricing() {
+  const { currentUser } = useAuth();
+  const { subscriptionTier, createCheckoutSession } = useSubscription();
+  const { toast } = useToast();
+
+  const handlePlanSelection = async (plan: string) => {
+    if (!currentUser) {
+      // Redirect to signup if not logged in
+      window.location.href = '/signup';
+      return;
+    }
+
+    try {
+      await createCheckoutSession(plan);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create checkout session. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   const plans = [
     {
       name: "Free",
@@ -18,7 +42,8 @@ export default function Pricing() {
       ],
       cta: "Start Free",
       href: "/signup",
-      variant: "outline" as const
+      variant: "outline" as const,
+      planId: "free"
     },
     {
       name: "Pro",
@@ -38,7 +63,8 @@ export default function Pricing() {
       cta: "Start Pro Trial",
       href: "/signup?plan=pro",
       variant: "hero" as const,
-      popular: true
+      popular: true,
+      planId: "pro"
     },
     {
       name: "Enterprise",
@@ -57,7 +83,8 @@ export default function Pricing() {
       ],
       cta: "Contact Sales",
       href: "/contact",
-      variant: "heritage" as const
+      variant: "outline" as const,
+      planId: "enterprise"
     }
   ];
 
@@ -84,7 +111,9 @@ export default function Pricing() {
               className={`relative p-8 bg-card rounded-xl shadow-card border transition-smooth hover:shadow-elegant ${
                 plan.popular 
                   ? "border-primary scale-105" 
-                  : "border-border hover:border-primary/50"
+                  : subscriptionTier === plan.planId
+                    ? "border-accent ring-2 ring-accent/20"
+                    : "border-border hover:border-primary/50"
               }`}
             >
               {/* Popular badge */}
@@ -128,15 +157,35 @@ export default function Pricing() {
               </ul>
 
               {/* CTA */}
-              <Link to={plan.href} className="block">
+              {subscriptionTier === plan.planId ? (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  size="lg"
+                  disabled
+                >
+                  Current Plan
+                </Button>
+              ) : plan.planId === "free" ? (
+                <Link to={plan.href} className="block">
+                  <Button 
+                    variant={plan.variant} 
+                    className="w-full"
+                    size="lg"
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
+              ) : (
                 <Button 
                   variant={plan.variant} 
                   className="w-full"
                   size="lg"
+                  onClick={() => handlePlanSelection(plan.planId)}
                 >
                   {plan.cta}
                 </Button>
-              </Link>
+              )}
             </div>
           ))}
         </div>

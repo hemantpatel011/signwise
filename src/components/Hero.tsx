@@ -1,9 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Brain, FileCheck } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero-image.jpg";
 
 export default function Hero() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  const handleTryFree = () => {
+    if (currentUser) {
+      navigate('/dashboard');
+    } else {
+      navigate('/signup');
+    }
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden india-pride">
       {/* Heritage pattern background */}
@@ -43,12 +55,10 @@ export default function Hero() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Link to="/signup">
-              <Button variant="hero" size="xl" className="group">
-                Start Free Analysis
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-smooth" />
-              </Button>
-            </Link>
+            <Button variant="hero" size="xl" className="group" onClick={handleTryFree}>
+              Try SignWise for Free
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-smooth" />
+            </Button>
             <Button 
               variant="glass" 
               size="xl"

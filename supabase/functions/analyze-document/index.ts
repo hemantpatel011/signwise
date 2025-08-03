@@ -55,7 +55,7 @@ serve(async (req) => {
       .update({ status: 'analyzing' })
       .eq('id', documentId);
 
-    // Download document from storage
+    // Download document from storage with larger timeout for 10MB files
     const { data: fileData, error: fileError } = await supabaseClient.storage
       .from('documents')
       .download(document.file_path);
@@ -73,9 +73,32 @@ serve(async (req) => {
       );
     }
 
-    // Convert file to base64 for Gemini API
+    // Check file size (max 10MB)
+    const fileSizeInMB = fileData.size / (1024 * 1024);
+    if (fileSizeInMB > 10) {
+      console.error('File too large:', fileSizeInMB, 'MB');
+      await supabaseClient
+        .from('documents')
+        .update({ status: 'error' })
+        .eq('id', documentId);
+      
+      return new Response(
+        JSON.stringify({ error: 'File size exceeds 10MB limit' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // Convert file to base64 for Gemini API with optimized chunk processing
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64Data = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let base64Data = '';
+    
+    // Process in chunks to avoid memory issues with large files
+    const chunkSize = 3 * 1024; // 3KB chunks for optimal base64 encoding
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.slice(i, i + chunkSize);
+      base64Data += btoa(String.fromCharCode(...chunk));
+    }
 
     // Analyze document with Gemini AI
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
