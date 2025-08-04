@@ -166,12 +166,8 @@ export function useDocuments() {
             description: "Document uploaded but analysis failed",
             variant: "destructive"
           });
-        } else {
-          toast({
-            title: "Analysis Complete", 
-            description: "Document has been analyzed successfully",
-          });
         }
+        // Note: Success toast will be handled by real-time updates
       });
 
       // Refresh documents list
@@ -271,6 +267,29 @@ export function useDocuments() {
   useEffect(() => {
     if (currentUser) {
       fetchDocuments();
+      
+      // Set up real-time subscription for document updates
+      const channel = supabase
+        .channel('documents-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'documents',
+            filter: `user_id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            console.log('Document updated:', payload);
+            // Refresh documents when any document changes
+            fetchDocuments();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [currentUser]);
 
